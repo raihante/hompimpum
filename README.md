@@ -46,18 +46,14 @@ Preview running:
 ![Run](https://raw.githubusercontent.com/raihante/hompimpum/main/run.png)
 
 
+
 ## ❓ FAQ
 
-#### Bang kok "ERROR RESTARTING BOT" mulu ?
+#### [?] Bang kok "ERROR RESTARTING BOT" mulu ?
 
-Coba ambil query (token) nya lagi kemungkinan expired.
+- Coba ambil query (token) nya lagi kemungkinan expired.
 
-
-
-## License
-
-
-
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
+#### [?] Bang link daftar / register botnya dimana ?
+[![Register BOT](https://img.shields.io/badge/REGISTER-HERE-yellow.svg)](https://t.me/hopium_official_bot/join?startapp=linkCode_768014636)
 
 
