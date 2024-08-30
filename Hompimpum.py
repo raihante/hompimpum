@@ -23,17 +23,15 @@ def forever():
         forever()
 
 def banner():
-    os.system("title HOPIUM AUTO BET")
-    os.system('cls')
+    os.system("title FINTOPIO BOT | t.me/fakinsit" if os.name == "nt" else "clear")
+    os.system("cls" if os.name == "nt" else "clear")
     custom_fig = Figlet(font='slant')
-    print(' =========================================')
     print('')
-    print(custom_fig.renderText(' HOPIUM')) 
-    print(Fore.RED, ' # [C] R E G E X    ', Fore.GREEN, '[HOPIUM AUTO BET] $$ ', Fore.RESET)
+    print(custom_fig.renderText(' FINTOPIO'));
+    print(Fore.RED + '[#] [C] R E G E X    ' + Fore.GREEN + '[FINTOPIO BOT] $$ ' + Fore.RESET)
+    print(Fore.GREEN +'[#] Welcome & Enjoy !', Fore.RESET)
+    print(Fore.YELLOW +'[#] Having Troubles? PM Telegram [t.me/fakinsit] ', Fore.RESET)
     print('')
-    print(' =========================================')
-    print(Fore.GREEN +' Welcome & Enjoy !', Fore.RESET)
-    print(Fore.YELLOW +' Having Troubles? PM Telegram [t.me/fakinsit] ', Fore.RESET)
 
 
 
