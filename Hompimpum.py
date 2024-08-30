@@ -4,22 +4,23 @@
 
 
 import os
-import asyncio
-import aiohttp
+import requests
 import time
 from pyfiglet import Figlet
 from colorama import Fore
 from fake_useragent import UserAgent
 
 
-async def forever():
-    banner()
-    while True:
-        try:
-            await main()
-        except:
-            print(Fore.RED, '[STATUS] ERROR RESTARTING BOT !', Fore.RESET)
-            await main()
+
+def forever():
+    try:
+        value = True
+        while (value):
+            main()
+    except:
+        print('\033[1;91m[ERROR] Restarting!!\033[1;m')
+        time.sleep(5)
+        forever()
 
 def banner():
     os.system("title HOPIUM AUTO BET")
@@ -51,9 +52,11 @@ headers = {
 }
 
 
-async def getstatus(url, session):
-    async with session.get(url, headers=headers) as response:
-        res = await response.json()
+def getstatus(url):
+        r = requests.get(url,headers=headers)
+        res = r.json()
+        #print(res)
+
         jsonlivebalance =  res['balance']
         jsontotalscore =  res['point']
 
@@ -61,11 +64,10 @@ async def getstatus(url, session):
         print(Fore.GREEN, '[STATUS]', Fore.RESET, 'HOPIUM :'+ Fore.YELLOW, jsonlivebalance, Fore.RESET,'| TOTAL SCORE :', Fore.YELLOW, jsontotalscore, Fore.RESET)
 
 
-async def turnsplay(url, session):
-    global textpayload
-    
-    async with session.post(url, headers=headers, data=textpayload) as response3:
-        res3 = await response3.json()
+def turnsplay(url):
+        global textpayload
+        r3 = requests.post(url,headers=headers,data=textpayload)
+        res3 = r3.json()
 
         if res3 == {'statusCode': 429, 'message': 'ThrottlerException: Too Many Requests'}:
             print(Fore.RED, '[STATUS] ERROR TOO MANY REQUEST !', Fore.RESET)
@@ -77,15 +79,14 @@ async def turnsplay(url, session):
             jsonidplay =  res3['_id']
 
             time.sleep(5)
+            r4 = requests.get('https://hopium.dev/api/game/turns/'+jsonidplay,headers=headers,data=textpayload)
+            res4 = r4.json()
 
-            async with session.get('https://hopium.dev/api/game/turns/'+jsonidplay, headers=headers, data=textpayload) as response4:
-                res4 = await response4.json()
-
-                if res4 == {'statusCode': 429, 'message': 'ThrottlerException: Too Many Requests'}:
+            if res4 == {'statusCode': 429, 'message': 'ThrottlerException: Too Many Requests'}:
                     print(Fore.RED, '[STATUS] ERROR TOO MANY REQUEST !', Fore.RESET)
-                elif res4 == {'message': 'User is already playing', 'error': 'Bad Request', 'statusCode': 400}:
+            elif res4 == {'message': 'User is already playing', 'error': 'Bad Request', 'statusCode': 400}:
                     print(Fore.RED, '[STATUS] ERROR USER ALREADY PLAYING !', Fore.RESET)
-                else:
+            else:
 
                 
                     jsoncloseprice =  res4['closePrice']
@@ -121,19 +122,12 @@ async def turnsplay(url, session):
         
 
 
-async def main():
+def main():
     try:
-        async with aiohttp.ClientSession() as session:
-            await getstatus("https://hopium.dev/api/wallets/balance", session)
-            await turnsplay("https://hopium.dev/api/game/play", session)
+            getstatus("https://hopium.dev/api/wallets/balance")
+            turnsplay("https://hopium.dev/api/game/play")
     except:
-        await main()
-try:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(forever())
-except:
-    print(Fore.RED, '[STATUS] ERROR RESTARTING BOT !', Fore.RESET)
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(forever())
+        forever()
+
+banner()
+forever()
