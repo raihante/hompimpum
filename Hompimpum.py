@@ -1,14 +1,18 @@
-# HOPIUM AUTO BET
+# HOPIM AUTO BET
 # Author    : @fakinsit
 # Date      : 26/08/24
 
 
 import os
-import requests
+import urllib.request
+import urllib.parse
 import time
+import json
+import sys
 from pyfiglet import Figlet
 from colorama import Fore
 from fake_useragent import UserAgent
+from urllib import request, parse
 
 
 
@@ -16,8 +20,9 @@ def forever():
     try:
         value = True
         while (value):
-            main()
-    except:
+            turnsplay()
+    except Exception as e:
+
         print('\033[1;91m[ERROR] Restarting!!\033[1;m')
         time.sleep(5)
         forever()
@@ -40,45 +45,53 @@ with open('query.txt', 'r') as pler:
     quentod = pler.read()
 user_agent = UserAgent()
 random_user_agent = user_agent.random
-textpayload = '{"side":"PUMP"}'
-headers = {
-        "Host": 'hopium.dev',
-        "User-Agent": random_user_agent,
-        'Accept': 'application/json, text/plain, */*',
-        'Content-Type': 'application/json',
-        'Authorization': 'tma ' + quentod
+textpayload = {'side':'PUMP'}
+header = {
+        'user-agent': random_user_agent,
+        'authorization': 'tma ' + quentod
 }
 
 
-def getstatus(url):
-        r = requests.get(url,headers=headers)
-        res = r.json()
-        #print(res)
+def getstatus():
+	url = 'https://hopium.dev/api/wallets/balance'
+	request = urllib.request.Request(url, headers=header)
+	response = urllib.request.urlopen(request).read()
+	encme = response.decode('utf-8')
+	res = json.loads(encme)
 
-        jsonlivebalance =  res['balance']
-        jsontotalscore =  res['point']
+	jsonlivebalance =  res['balance']
+	jsontotalscore =  res['point']
 
-        print("")
-        print(Fore.GREEN, '[STATUS]', Fore.RESET, 'HOPIUM :'+ Fore.YELLOW, jsonlivebalance, Fore.RESET,'| TOTAL SCORE :', Fore.YELLOW, jsontotalscore, Fore.RESET)
+	print("")
+	print(Fore.GREEN, '[STATUS]', Fore.RESET, 'HOPIUM :'+ Fore.YELLOW, jsonlivebalance, Fore.RESET,'| TOTAL SCORE :', Fore.YELLOW, jsontotalscore, Fore.RESET)
 
 
-def turnsplay(url):
-        global textpayload
-        r3 = requests.post(url,headers=headers,data=textpayload)
-        res3 = r3.json()
+def turnsplay():
+    global textpayload
+    getstatus()
+    data = parse.urlencode(textpayload).encode()
+    url = 'https://hopium.dev/api/game/play'
+    request = urllib.request.Request(url, data=data, headers=header)
+    response = urllib.request.urlopen(request).read()
+    encme = response.decode('utf-8')
+    res3 = json.loads(encme)
 
-        if res3 == {'statusCode': 429, 'message': 'ThrottlerException: Too Many Requests'}:
+    if res3 == {'statusCode': 429, 'message': 'ThrottlerException: Too Many Requests'}:
             print(Fore.RED, '[STATUS] ERROR TOO MANY REQUEST !', Fore.RESET)
-        elif res3 == {'message': 'User is already playing', 'error': 'Bad Request', 'statusCode': 400}:
+    elif res3 == {'message': 'User is already playing', 'error': 'Bad Request', 'statusCode': 400}:
             print(Fore.RED, '[STATUS] ERROR USER ALREADY PLAYING !', Fore.RESET)
-        else:
+    else:
             jsonop =  res3['openPrice']
             jsonside =  res3['side']
             jsonidplay =  res3['_id']
 
             time.sleep(5)
-            r4 = requests.get('https://hopium.dev/api/game/turns/'+jsonidplay,headers=headers,data=textpayload)
-            res4 = r4.json()
+            url2 = 'https://hopium.dev/api/game/turns/'+jsonidplay
+            request = urllib.request.Request(url2, headers=header)
+            response = urllib.request.urlopen(request).read()
+            encme2 = response.decode('utf-8')
+            res4 = json.loads(encme2)
+            #print(res4)
 
             if res4 == {'statusCode': 429, 'message': 'ThrottlerException: Too Many Requests'}:
                     print(Fore.RED, '[STATUS] ERROR TOO MANY REQUEST !', Fore.RESET)
@@ -92,13 +105,13 @@ def turnsplay(url):
                     jsonws =  res4['winStreak']
 
                     if jsonside == "PUMP" and jsonres == "WIN":
-                        textpayload = '{"side":"PUMP"}'
+                        textpayload = {'side':'PUMP'}
                     elif jsonside == "PUMP" and jsonres == "MISS":
-                        textpayload = '{"side":"DUMP"}'
+                        textpayload = {'side':'DUMP'}
                     elif jsonside == "DUMP" and jsonres == "WIN":
-                        textpayload = '{"side":"DUMP"}'
+                        textpayload = {'side':'DUMP'}
                     else:
-                        textpayload = '{"side":"PUMP"}'
+                        textpayload = {'side':'PUMP'}
                     
                     if jsonres == "MISS":
                         jsonres = Fore.RED + "MISS"
@@ -116,16 +129,13 @@ def turnsplay(url):
                         jsonws2 = Fore.GREEN + str(jsonws)
 
                     print(Fore.GREEN, '[STATUS]', Fore.RESET, 'BET :', jsonside , Fore.RESET, '| OPEN PRICE :', Fore.GREEN , jsonop , Fore.RESET, '| CLOSE PRICE :', Fore.RED, jsoncloseprice , Fore.RESET, '| WINSTREAK :', jsonws2 , Fore.RESET, '| RESULT :', jsonres , Fore.RESET)
-
         
 
 
-def main():
+# NYALAIN SENDIRI ABANGKUHH
+if __name__ == "__main__":
     try:
-            getstatus("https://hopium.dev/api/wallets/balance")
-            turnsplay("https://hopium.dev/api/game/play")
-    except:
+        banner()
         forever()
-
-banner()
-forever()
+    except KeyboardInterrupt:
+        sys.exit()
