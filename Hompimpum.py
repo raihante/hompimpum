@@ -3,8 +3,6 @@
 # Date      : 26/08/24
 
 import os
-import urllib.request
-import urllib.parse
 import time
 import json
 import sys
@@ -12,18 +10,13 @@ import logging
 from pyfiglet import Figlet
 from colorama import Fore
 from fake_useragent import UserAgent
-from urllib import request, parse
 from datetime import datetime
+import cloudscraper
 
+# Set up logging
 logging.basicConfig(filename='re.log', level=logging.INFO, format='[%(asctime)s] - %(levelname)s - [%(message)s]')
 
-def restart_program():
-    """Restart the bot in case of an error"""
-    logging.error('[ERROR] RESTARTING...')
-    print(f'{Fore.RED}[ERROR] RESTARTING...{Fore.RESET}')
-    print(f'{Fore.RED}[ERROR] IF CONTINUOUSLY RESTARTING{Fore.RESET} CHAT TELEGRAM [t.me/fakinsit]')
-    time.sleep(5)
-    main_loop()
+MAX_RETRIES = 20  # Define max retries
 
 def get_formatted_time():
     """Get the current time formatted for display"""
@@ -41,69 +34,118 @@ def display_banner():
     print(f'{Fore.YELLOW}[#] Having Troubles? PM Telegram [t.me/fakinsit] {Fore.RESET}')
     print('')
 
-
 def get_user_agent():
     """Get a random user agent string"""
     user_agent = UserAgent()
     return user_agent.random
 
+# Common headers to be reused
+def get_headers(authorization_token):
+    """Create common headers to be used across requests"""
+    headers = {
+    'User-Agent': get_user_agent(),
+    'Authorization': f'tma {authorization_token}',
+    'Accept': 'application/json, text/plain, */*',
+    }
+    return headers
 
-def get_status(authorization_token):
+def get_status(scraper, authorization_token):
     """Retrieve and display the current wallet status with timestamp in purple"""
     url = 'https://hopium.dev/api/wallets/balance'
-    headers = {'user-agent': get_user_agent(), 'authorization': f'tma {authorization_token}'}
-    request = urllib.request.Request(url, headers=headers)
-    response = urllib.request.urlopen(request).read()
-    result = json.loads(response.decode('utf-8'))
-
-    balance = result['balance']
-    total_score = result['point']
-
-    timestamp = get_formatted_time()
-    logging.info(f'HOPIUM BALANCE: {balance} | TOTAL SCORE: {total_score}')
+    headers = get_headers(authorization_token)
+    retries = 0  # Initialize retries counter
     
-    print(f"{Fore.MAGENTA}[{timestamp}]{Fore.RESET} HOPIUM: {Fore.YELLOW}{balance}{Fore.RESET} | TOTAL SCORE: {Fore.YELLOW}{total_score}{Fore.RESET}")
+    while retries < MAX_RETRIES:
+        try:
+            response = scraper.get(url, headers=headers)
+            response.raise_for_status()
+            result = response.json()
 
+            balance = result['balance']
+            total_score = result['point']
 
-def play_turn(authorization_token, payload):
+            timestamp = get_formatted_time()  # Get the formatted time
+
+            print(f"{Fore.MAGENTA}[{timestamp}]{Fore.RESET} HOPIUM: {Fore.YELLOW}{balance}{Fore.RESET} | TOTAL SCORE: {Fore.YELLOW}{total_score}{Fore.RESET}")
+            return result  # Success, exit the loop
+
+        except cloudscraper.exceptions.CloudflareChallengeError as e:
+            retries += 1
+            logging.error(f"Error fetching status due to Cloudflare challenge: {e} (Retry {retries}/{MAX_RETRIES})")
+            print(f'{Fore.RED}[ERROR] Cloudflare challenge failed! Retrying immediately...{Fore.RESET}')
+        except Exception as e:
+            retries += 1
+            logging.error(f"Error fetching status: {e} (Retry {retries}/{MAX_RETRIES})")
+    
+    logging.error('Maximum retries reached for get_status.')
+    print(f'{Fore.RED}[ERROR] Maximum retries reached for get_status. Stopping...{Fore.RESET}')
+    print(f'{Fore.RED}press any key to exit...{Fore.RESET}')
+    input()
+
+def play_turn(scraper, authorization_token, payload):
     """Play the game turn and display the result"""
-    data = parse.urlencode(payload).encode()
     url = 'https://hopium.dev/api/game/play'
-    headers = {'user-agent': get_user_agent(), 'authorization': f'tma {authorization_token}'}
-    request = urllib.request.Request(url, data=data, headers=headers)
-    response = urllib.request.urlopen(request).read()
-    result = json.loads(response.decode('utf-8'))
+    headers = get_headers(authorization_token)
+    retries = 0  # Initialize retries counter
+    
+    while retries < MAX_RETRIES:
+        try:
+            response = scraper.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            result = response.json()
 
-    if result.get('statusCode') == 429:
-        logging.error('ERROR TOO MANY REQUESTS!')
-        print(f'{Fore.RED}[STATUS] ERROR TOO MANY REQUESTS!{Fore.RESET}')
-        return None
-    elif result.get('statusCode') == 400:
-        logging.error('ERROR USER ALREADY PLAYING!')
-        print(f'{Fore.RED}[STATUS] ERROR USER ALREADY PLAYING!{Fore.RESET}')
-        return None
+            return result['_id'], result['openPrice'], result['side']  # Success, exit the loop
 
-    logging.info(f'PLAYED TURN : GAME_ID: {result["_id"]} | OPEN PRICE: {result["openPrice"]} | BET : {result["side"]}')
-    return result['_id'], result['openPrice'], result['side']
+        except cloudscraper.exceptions.CloudflareChallengeError as e:
+            retries += 1
+            logging.error(f"Error playing turn due to Cloudflare challenge: {e} (Retry {retries}/{MAX_RETRIES})")
+            print(f'{Fore.RED}[ERROR] Cloudflare challenge failed! Retrying immediately...{Fore.RESET}')
+        except Exception as e:
+            retries += 1
+            logging.error(f"Error playing turn: {e} (Retry {retries}/{MAX_RETRIES})")
+    
+    logging.error('Maximum retries reached for play_turn.')
+    print(f'{Fore.RED}[ERROR] Maximum retries reached for play_turn. Stopping...{Fore.RESET}')
+    print(f'{Fore.RED}press any key to exit...{Fore.RESET}')
+    input()
 
-
-def get_turn_result(authorization_token, game_id):
+def get_turn_result(scraper, authorization_token, game_id):
     """Get the result of the played turn"""
     url = f'https://hopium.dev/api/game/turns/{game_id}'
-    headers = {'user-agent': get_user_agent(), 'authorization': f'tma {authorization_token}'}
-    request = urllib.request.Request(url, headers=headers)
-    response = urllib.request.urlopen(request).read()
-    result = json.loads(response.decode('utf-8'))
+    headers = get_headers(authorization_token)
+    retries = 0  # Initialize retries counter
 
-    if result.get('statusCode') == 429:
-        logging.error('ERROR TOO MANY REQUESTS!')
-        print(f'{Fore.RED}[STATUS] ERROR TOO MANY REQUESTS!{Fore.RESET}')
-    elif result.get('statusCode') == 400:
-        logging.error('ERROR USER ALREADY PLAYING!')
-        print(f'{Fore.RED}[STATUS] ERROR USER ALREADY PLAYING!{Fore.RESET}')
-    else:
-        return result['closePrice'], result['result'], result['winStreak']
+    while retries < MAX_RETRIES:
+        try:
+            response = scraper.get(url, headers=headers)
+            response.raise_for_status()
+            result = response.json()
 
+            if result.get('statusCode') == 429:
+                retries += 1
+                logging.error(f"ERROR TOO MANY REQUESTS! (Retry {retries}/{MAX_RETRIES})")
+                print(f'{Fore.RED}[STATUS] ERROR TOO MANY REQUESTS! Retrying immediately...{Fore.RESET}')
+                continue
+            elif result.get('statusCode') == 400:
+                retries += 1
+                logging.error(f"ERROR USER ALREADY PLAYING! (Retry {retries}/{MAX_RETRIES})")
+                print(f'{Fore.RED}[STATUS] ERROR USER ALREADY PLAYING! Retrying immediately...{Fore.RESET}')
+                continue
+
+            return result['closePrice'], result['result'], result['winStreak']  # Success, exit the loop
+
+        except cloudscraper.exceptions.CloudflareChallengeError as e:
+            retries += 1
+            logging.error(f"Error fetching turn result due to Cloudflare challenge: {e} (Retry {retries}/{MAX_RETRIES})")
+            print(f'{Fore.RED}[ERROR] Cloudflare challenge failed! Retrying immediately...{Fore.RESET}')
+        except Exception as e:
+            retries += 1
+            logging.error(f"Error fetching turn result: {e} (Retry {retries}/{MAX_RETRIES})")
+    
+    logging.error('Maximum retries reached for get_turn_result.')
+    print(f'{Fore.RED}[ERROR] Maximum retries reached for get_turn_result. Stopping...{Fore.RESET}')
+    print(f'{Fore.RED}press any key to exit...{Fore.RESET}')
+    input()
 
 def main_loop():
     """Main loop to keep playing the game"""
@@ -112,25 +154,22 @@ def main_loop():
 
     payload = {'side': 'PUMP'}
 
+    # Create a cloudscraper session
+    scraper = cloudscraper.create_scraper()
+
     while True:
-        try:
-            get_status(authorization_token)
-            game_id, open_price, side = play_turn(authorization_token, payload)
-            if game_id:
-                time.sleep(5) 
-                close_price, result, win_streak = get_turn_result(authorization_token, game_id)
+        get_status(scraper, authorization_token)  # Keep retrying until successful
+        game_id, open_price, side = play_turn(scraper, authorization_token, payload)  # Keep retrying until successful
+        time.sleep(5)  # Wait for the game result
+        close_price, result, win_streak = get_turn_result(scraper, authorization_token, game_id)  # Keep retrying until successful
 
-                if side == 'PUMP' and result == 'MISS':
-                    payload = {'side': 'DUMP'}
-                elif side == 'DUMP' and result == 'MISS':
-                    payload = {'side': 'PUMP'}
+        # Update payload based on result
+        if side == 'PUMP' and result == 'MISS':
+            payload = {'side': 'DUMP'}
+        elif side == 'DUMP' and result == 'MISS':
+            payload = {'side': 'PUMP'}
 
-                display_turn_result(open_price, close_price, side, result, win_streak)
-
-        except Exception as e:
-            logging.exception(f'Exception occurred: {e}')
-            restart_program()
-
+        display_turn_result(open_price, close_price, side, result, win_streak)
 
 def display_turn_result(open_price, close_price, side, result, win_streak):
     """Display the result of a turn with a timestamp in purple"""
@@ -138,14 +177,12 @@ def display_turn_result(open_price, close_price, side, result, win_streak):
     result_color = Fore.GREEN if result == 'WIN' else Fore.RED
     win_streak_color = Fore.GREEN if win_streak > 0 else Fore.RED
 
-    timestamp = get_formatted_time() 
-    logging.info(f'TURN RESULT : BET {side} | OPEN PRICE {open_price} | CLOSE PRICE {close_price} | RESULT {result} | WINSTREAK {win_streak}')
-    
+    timestamp = get_formatted_time()  # Get the formatted time
+
     print(f"{Fore.MAGENTA}[{timestamp}]{Fore.RESET} BET: {side_color}{side}{Fore.RESET} | OPEN PRICE: {Fore.GREEN}{open_price}{Fore.RESET} | "
           f"CLOSE PRICE: {Fore.RED}{close_price}{Fore.RESET} | WINSTREAK: {win_streak_color}{win_streak}{Fore.RESET} | "
           f"RESULT: {result_color}{result}{Fore.RESET}")
     print('')
-
 
 if __name__ == "__main__":
     display_banner()
